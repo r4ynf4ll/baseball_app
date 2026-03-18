@@ -1,1 +1,36 @@
-hi
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Baseball Seasons</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Teko:wght@500;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<div class="bg-overlay" aria-hidden="true"></div>
+
+	<main class="page-shell">
+		<section class="hero">
+			<p class="kicker">Baseball Analytics</p>
+			<h1>Select A Season</h1>
+			<p class="subtitle">Choose a year from the database to begin exploring the game.</p>
+		</section>
+
+		<section class="season-card" aria-labelledby="season-label">
+			<label id="season-label" for="year-select">Season Year</label>
+			<div class="picker-row">
+				<select id="year-select" name="year" disabled>
+					<option value="">Loading years...</option>
+				</select>
+				<span id="year-pill" class="year-pill">-</span>
+			</div>
+			<p id="status" class="status" role="status" aria-live="polite">Loading available years...</p>
+		</section>
+	</main>
+
+	<script src="script.js" defer></script>
+</body>
+</html>

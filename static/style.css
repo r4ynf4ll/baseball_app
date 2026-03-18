@@ -1,0 +1,195 @@
+:root {
+	--night-sky: #081426;
+	--turf-green: #0d4a36;
+	--chalk-white: #f3f6f9;
+	--stitch-red: #d63232;
+	--speed-yellow: #ffbf2f;
+	--panel: rgba(7, 18, 34, 0.78);
+	--panel-border: rgba(243, 246, 249, 0.24);
+	--status-ok: #8ce9b5;
+	--status-error: #ff9292;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	color: var(--chalk-white);
+	font-family: "Rajdhani", sans-serif;
+	background:
+		radial-gradient(circle at 15% 20%, rgba(214, 50, 50, 0.35) 0, rgba(214, 50, 50, 0) 35%),
+		radial-gradient(circle at 90% 80%, rgba(255, 191, 47, 0.26) 0, rgba(255, 191, 47, 0) 30%),
+		linear-gradient(140deg, var(--night-sky), #06101c 40%, var(--turf-green));
+	overflow-x: hidden;
+}
+
+.bg-overlay {
+	position: fixed;
+	inset: 0;
+	background:
+		repeating-linear-gradient(
+			-24deg,
+			rgba(243, 246, 249, 0.03),
+			rgba(243, 246, 249, 0.03) 8px,
+			transparent 8px,
+			transparent 24px
+		);
+	pointer-events: none;
+}
+
+.page-shell {
+	width: min(920px, calc(100% - 2.5rem));
+	margin: 0 auto;
+	padding: 4.5rem 0 3.5rem;
+	display: grid;
+	gap: 1.75rem;
+}
+
+.hero,
+.season-card {
+	background: var(--panel);
+	border: 1px solid var(--panel-border);
+	border-radius: 20px;
+	backdrop-filter: blur(7px);
+	box-shadow:
+		0 22px 44px rgba(0, 0, 0, 0.35),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	animation: rise-in 650ms ease-out both;
+}
+
+.hero {
+	padding: 1.6rem 1.7rem;
+}
+
+.kicker {
+	margin: 0;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--speed-yellow);
+	font-weight: 700;
+}
+
+h1 {
+	margin: 0.35rem 0 0;
+	font-family: "Teko", sans-serif;
+	font-size: clamp(2.3rem, 7vw, 4.4rem);
+	letter-spacing: 0.04em;
+	line-height: 0.95;
+	text-transform: uppercase;
+}
+
+.subtitle {
+	margin: 0.55rem 0 0;
+	font-size: clamp(1.05rem, 2vw, 1.25rem);
+	color: rgba(243, 246, 249, 0.9);
+}
+
+.season-card {
+	padding: 1.5rem;
+	animation-delay: 180ms;
+}
+
+label {
+	display: inline-block;
+	font-weight: 700;
+	font-size: 1.1rem;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+
+.picker-row {
+	margin-top: 0.8rem;
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 0.75rem;
+	align-items: center;
+}
+
+#year-select {
+	width: 100%;
+	padding: 0.95rem 1rem;
+	border-radius: 12px;
+	border: 1px solid rgba(243, 246, 249, 0.45);
+	background: rgba(1, 9, 20, 0.9);
+	color: var(--chalk-white);
+	font: 700 1.15rem "Rajdhani", sans-serif;
+	letter-spacing: 0.05em;
+	transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+#year-select:focus {
+	outline: none;
+	border-color: var(--speed-yellow);
+	box-shadow: 0 0 0 4px rgba(255, 191, 47, 0.2);
+}
+
+#year-select:disabled {
+	opacity: 0.65;
+	cursor: not-allowed;
+}
+
+.year-pill {
+	min-width: 5.3rem;
+	text-align: center;
+	border-radius: 999px;
+	padding: 0.7rem 1rem;
+	background: linear-gradient(135deg, var(--stitch-red), #ec5542);
+	color: #fff;
+	font-family: "Teko", sans-serif;
+	font-size: 1.7rem;
+	letter-spacing: 0.06em;
+	box-shadow: 0 10px 20px rgba(214, 50, 50, 0.35);
+}
+
+.status {
+	margin: 0.85rem 0 0;
+	color: var(--status-ok);
+	font-size: 1rem;
+	letter-spacing: 0.03em;
+}
+
+.status.error {
+	color: var(--status-error);
+}
+
+@keyframes rise-in {
+	from {
+		transform: translateY(18px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@media (max-width: 700px) {
+	.page-shell {
+		width: min(680px, calc(100% - 1.2rem));
+		padding: 2rem 0 2.2rem;
+	}
+
+	.hero,
+	.season-card {
+		border-radius: 16px;
+	}
+
+	.hero {
+		padding: 1.25rem;
+	}
+
+	.season-card {
+		padding: 1.2rem;
+	}
+
+	.picker-row {
+		grid-template-columns: 1fr;
+	}
+
+	.year-pill {
+		width: fit-content;
+	}
+}
