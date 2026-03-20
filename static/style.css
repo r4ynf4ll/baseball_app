@@ -112,8 +112,22 @@ h2 {
 	border-radius: 8px;
 	border: 1px solid rgba(255, 255, 255, 0.16);
 	background: rgba(255, 255, 255, 0.03);
-	font-weight: 700;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
 	letter-spacing: 0.02em;
+}
+
+.team-name {
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+.team-meta {
+	font-size: 0.88rem;
+	font-weight: 500;
+	color: var(--text-muted);
+	line-height: 1.15;
 }
 
 .team-list .placeholder {

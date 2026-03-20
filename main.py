@@ -16,12 +16,16 @@ async def get_years():
 async def get_teams(year: int):
     with Session(engine) as session:
         statement = (
-            select(Teams.name)
+            select(Teams.name, Teams.lgid, Teams.divid)
             .where(Teams.yearid == year)
             .where(Teams.name.is_not(None))
             .order_by(Teams.name)
         )
-        team_names = session.exec(statement).all()
-    return team_names
+        rows = session.exec(statement).all()
+    teams = [
+        {"name": name, "league": league, "division": division}
+        for name, league, division in rows
+    ]
+    return teams
 
 app.mount("/", StaticFiles(directory="static", html=True),name="static")

@@ -5,6 +5,21 @@ const teamList = document.getElementById("team-list");
 const teamsStatusText = document.getElementById("teams-status");
 let activeTeamsRequest = 0;
 
+const LEAGUE_LABELS = {
+	AL: "American League",
+	NL: "National League",
+	AA: "American Association",
+	FL: "Federal League",
+	PL: "Players League",
+	UA: "Union Association",
+};
+
+const DIVISION_LABELS = {
+	E: "East Division",
+	C: "Central Division",
+	W: "West Division",
+};
+
 function setStatus(message, isError = false) {
 	statusText.textContent = message;
 	statusText.classList.toggle("error", isError);
@@ -19,10 +34,28 @@ function setTeamsStatus(message, isError = false) {
 	teamsStatusText.classList.toggle("error", isError);
 }
 
-function fillTeamList(teamNames) {
+function formatLeagueLabel(leagueCode) {
+	if (!leagueCode) {
+		return "Unknown League";
+	}
+
+	const normalized = leagueCode.trim().toUpperCase();
+	return LEAGUE_LABELS[normalized] || normalized;
+}
+
+function formatDivisionLabel(divisionCode) {
+	if (!divisionCode) {
+		return "No Division";
+	}
+
+	const normalized = divisionCode.trim().toUpperCase();
+	return DIVISION_LABELS[normalized] || normalized;
+}
+
+function fillTeamList(teams) {
 	teamList.replaceChildren();
 
-	if (teamNames.length === 0) {
+	if (teams.length === 0) {
 		const item = document.createElement("li");
 		item.className = "placeholder";
 		item.textContent = "No teams found for this season.";
@@ -30,9 +63,21 @@ function fillTeamList(teamNames) {
 		return;
 	}
 
-	for (const teamName of teamNames) {
+	for (const team of teams) {
 		const item = document.createElement("li");
-		item.textContent = teamName;
+
+		const teamName = document.createElement("span");
+		teamName.className = "team-name";
+		teamName.textContent = team.name;
+
+		const teamMeta = document.createElement("span");
+		teamMeta.className = "team-meta";
+		const league = formatLeagueLabel(team.league);
+		const division = formatDivisionLabel(team.division);
+		teamMeta.textContent = `${league} • ${division}`;
+
+		item.appendChild(teamName);
+		item.appendChild(teamMeta);
 		teamList.appendChild(item);
 	}
 }
@@ -62,18 +107,30 @@ async function loadTeams(year) {
 			throw new Error(`Request failed with status ${response.status}`);
 		}
 
-		const teamNames = await response.json();
+		const teams = await response.json();
 
 		if (requestId !== activeTeamsRequest) {
 			return;
 		}
 
-		if (!Array.isArray(teamNames)) {
+		if (!Array.isArray(teams)) {
 			throw new Error("Invalid team list returned from server");
 		}
 
-		fillTeamList(teamNames);
-		setTeamsStatus(`${teamNames.length} teams loaded for ${year}`);
+		const normalizedTeams = teams.map((team) => {
+			if (!team || typeof team !== "object" || typeof team.name !== "string") {
+				throw new Error("Invalid team entry returned from server");
+			}
+
+			return {
+				name: team.name,
+				league: typeof team.league === "string" ? team.league : null,
+				division: typeof team.division === "string" ? team.division : null,
+			};
+		});
+
+		fillTeamList(normalizedTeams);
+		setTeamsStatus(`${normalizedTeams.length} teams loaded for ${year}`);
 	} catch (error) {
 		if (requestId !== activeTeamsRequest) {
 			return;
