@@ -28,4 +28,27 @@ async def get_teams(year: int):
     ]
     return teams
 
+@app.get("/players")
+async def get_players(year: int, team: str):
+    with Session(engine) as session:
+        statement = (
+            select(People.playerid, People.namefirst, People.namelast)
+            .join(Batting, Batting.playerid == People.playerid)
+            .join(Teams, (Teams.yearid == Batting.yearid) & (Teams.teamid == Batting.teamid))
+            .where(Teams.yearid == year)
+            .where(Teams.name == team)
+            .where(People.namefirst.is_not(None))
+            .where(People.namelast.is_not(None))
+            .distinct()
+            .order_by(People.namelast, People.namefirst)
+        )
+        rows = session.exec(statement).all()
+
+    players = [
+        {"first_name": first_name, "last_name": last_name}
+        for _, first_name, last_name in rows
+    ]
+    return players
+
+
 app.mount("/", StaticFiles(directory="static", html=True),name="static")

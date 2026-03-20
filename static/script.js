@@ -3,7 +3,13 @@ const yearPill = document.getElementById("year-pill");
 const statusText = document.getElementById("status");
 const teamList = document.getElementById("team-list");
 const teamsStatusText = document.getElementById("teams-status");
+const playerList = document.getElementById("player-list");
+const playersStatusText = document.getElementById("players-status");
+const selectedTeamText = document.getElementById("selected-team");
 let activeTeamsRequest = 0;
+let activePlayersRequest = 0;
+let currentTeams = [];
+let selectedTeamName = null;
 
 const LEAGUE_LABELS = {
 	AL: "American League",
@@ -20,6 +26,9 @@ const DIVISION_LABELS = {
 	W: "West Division",
 };
 
+const LEAGUE_ORDER = ["AL", "NL", "AA", "FL", "PL", "UA", "UNKNOWN"];
+const DIVISION_ORDER = ["E", "C", "W", "NONE"];
+
 function setStatus(message, isError = false) {
 	statusText.textContent = message;
 	statusText.classList.toggle("error", isError);
@@ -32,6 +41,18 @@ function setSelectedYear(year) {
 function setTeamsStatus(message, isError = false) {
 	teamsStatusText.textContent = message;
 	teamsStatusText.classList.toggle("error", isError);
+}
+
+function setPlayersStatus(message, isError = false) {
+	playersStatusText.textContent = message;
+	playersStatusText.classList.toggle("error", isError);
+}
+
+function setSelectedTeam(teamName) {
+	selectedTeamName = teamName;
+	selectedTeamText.textContent = teamName
+		? `Selected team: ${teamName}`
+		: "Select a team to load players.";
 }
 
 function formatLeagueLabel(leagueCode) {
@@ -52,38 +73,217 @@ function formatDivisionLabel(divisionCode) {
 	return DIVISION_LABELS[normalized] || normalized;
 }
 
+function normalizeCode(value, fallback) {
+	if (typeof value !== "string") {
+		return fallback;
+	}
+
+	const normalized = value.trim().toUpperCase();
+	return normalized || fallback;
+}
+
+function codeRank(code, preferredOrder) {
+	const rank = preferredOrder.indexOf(code);
+	return rank === -1 ? preferredOrder.length : rank;
+}
+
+function fillPlayerList(players, emptyMessage = "No players found for this team in that season.") {
+	playerList.replaceChildren();
+
+	if (players.length === 0) {
+		const placeholder = document.createElement("li");
+		placeholder.className = "placeholder";
+		placeholder.textContent = emptyMessage;
+		playerList.appendChild(placeholder);
+		return;
+	}
+
+	for (const player of players) {
+		const playerItem = document.createElement("li");
+		playerItem.className = "player-item";
+		playerItem.textContent = `${player.first_name} ${player.last_name}`;
+		playerList.appendChild(playerItem);
+	}
+}
+
+function resetPlayersPanel() {
+	activePlayersRequest += 1;
+	setSelectedTeam(null);
+	fillPlayerList([], "No team selected.");
+	setPlayersStatus("Waiting for team selection...");
+}
+
 function fillTeamList(teams) {
 	teamList.replaceChildren();
 
 	if (teams.length === 0) {
-		const item = document.createElement("li");
-		item.className = "placeholder";
-		item.textContent = "No teams found for this season.";
-		teamList.appendChild(item);
+		const placeholder = document.createElement("p");
+		placeholder.className = "placeholder";
+		placeholder.textContent = "No teams found for this season.";
+		teamList.appendChild(placeholder);
 		return;
 	}
 
+	const grouped = new Map();
+
 	for (const team of teams) {
-		const item = document.createElement("li");
+		const leagueCode = normalizeCode(team.league, "UNKNOWN");
+		const divisionCode = normalizeCode(team.division, "NONE");
 
-		const teamName = document.createElement("span");
-		teamName.className = "team-name";
-		teamName.textContent = team.name;
+		if (!grouped.has(leagueCode)) {
+			grouped.set(leagueCode, new Map());
+		}
 
-		const teamMeta = document.createElement("span");
-		teamMeta.className = "team-meta";
-		const league = formatLeagueLabel(team.league);
-		const division = formatDivisionLabel(team.division);
-		teamMeta.textContent = `${league} • ${division}`;
+		const divisions = grouped.get(leagueCode);
+		if (!divisions.has(divisionCode)) {
+			divisions.set(divisionCode, []);
+		}
 
-		item.appendChild(teamName);
-		item.appendChild(teamMeta);
-		teamList.appendChild(item);
+		divisions.get(divisionCode).push(team.name);
+	}
+
+	const leagueCodes = [...grouped.keys()].sort((a, b) => {
+		const rankDelta = codeRank(a, LEAGUE_ORDER) - codeRank(b, LEAGUE_ORDER);
+		if (rankDelta !== 0) {
+			return rankDelta;
+		}
+
+		return formatLeagueLabel(a).localeCompare(formatLeagueLabel(b));
+	});
+
+	for (const leagueCode of leagueCodes) {
+		const leagueSection = document.createElement("section");
+		leagueSection.className = "league-group";
+
+		const leagueTitle = document.createElement("h3");
+		leagueTitle.className = "league-title";
+		leagueTitle.textContent = formatLeagueLabel(leagueCode === "UNKNOWN" ? null : leagueCode);
+		leagueSection.appendChild(leagueTitle);
+
+		const divisionGrid = document.createElement("div");
+		divisionGrid.className = "division-grid";
+
+		const divisions = grouped.get(leagueCode);
+		const divisionCodes = [...divisions.keys()].sort((a, b) => {
+			const rankDelta = codeRank(a, DIVISION_ORDER) - codeRank(b, DIVISION_ORDER);
+			if (rankDelta !== 0) {
+				return rankDelta;
+			}
+
+			return formatDivisionLabel(a).localeCompare(formatDivisionLabel(b));
+		});
+
+		for (const divisionCode of divisionCodes) {
+			const divisionSection = document.createElement("section");
+			divisionSection.className = "division-group";
+
+			const divisionTitle = document.createElement("h4");
+			divisionTitle.className = "division-title";
+			divisionTitle.textContent = formatDivisionLabel(divisionCode === "NONE" ? null : divisionCode);
+
+			const teamsInDivision = [...divisions.get(divisionCode)].sort((a, b) => a.localeCompare(b));
+			const divisionTeamList = document.createElement("ul");
+			divisionTeamList.className = "division-teams";
+
+			for (const teamName of teamsInDivision) {
+				const teamItem = document.createElement("li");
+				teamItem.className = "division-team-item";
+
+				const teamButton = document.createElement("button");
+				teamButton.type = "button";
+				teamButton.className = "team-button";
+				if (teamName === selectedTeamName) {
+					teamButton.classList.add("is-selected");
+				}
+				teamButton.textContent = teamName;
+				teamButton.addEventListener("click", () => {
+					handleTeamSelection(teamName);
+				});
+
+				teamItem.appendChild(teamButton);
+				divisionTeamList.appendChild(teamItem);
+			}
+
+			divisionSection.appendChild(divisionTitle);
+			divisionSection.appendChild(divisionTeamList);
+			divisionGrid.appendChild(divisionSection);
+		}
+
+		leagueSection.appendChild(divisionGrid);
+		teamList.appendChild(leagueSection);
+	}
+}
+
+async function loadPlayers(year, teamName) {
+	const requestId = ++activePlayersRequest;
+
+	if (!year || !teamName) {
+		setPlayersStatus("Waiting for team selection...");
+		fillPlayerList([]);
+		return;
+	}
+
+	playerList.replaceChildren();
+	const loadingItem = document.createElement("li");
+	loadingItem.className = "placeholder";
+	loadingItem.textContent = "Loading players...";
+	playerList.appendChild(loadingItem);
+	setPlayersStatus(`Loading players for ${teamName}...`);
+
+	try {
+		const response = await fetch(
+			`/players?year=${encodeURIComponent(year)}&team=${encodeURIComponent(teamName)}`,
+			{ cache: "no-store" },
+		);
+
+		if (!response.ok) {
+			throw new Error(`Request failed with status ${response.status}`);
+		}
+
+		const players = await response.json();
+
+		if (requestId !== activePlayersRequest) {
+			return;
+		}
+
+		if (!Array.isArray(players)) {
+			throw new Error("Invalid players list returned from server");
+		}
+
+		const normalizedPlayers = players.map((player) => {
+			if (
+				!player ||
+				typeof player !== "object" ||
+				typeof player.first_name !== "string" ||
+				typeof player.last_name !== "string"
+			) {
+				throw new Error("Invalid player entry returned from server");
+			}
+
+			return {
+				first_name: player.first_name,
+				last_name: player.last_name,
+			};
+		});
+
+		fillPlayerList(normalizedPlayers);
+		setPlayersStatus(`${normalizedPlayers.length} players loaded for ${teamName}`);
+	} catch (error) {
+		if (requestId !== activePlayersRequest) {
+			return;
+		}
+
+		console.error(error);
+		fillPlayerList([]);
+		setPlayersStatus("Could not load players for that selection.", true);
 	}
 }
 
 async function loadTeams(year) {
 	const requestId = ++activeTeamsRequest;
+
+	currentTeams = [];
+	resetPlayersPanel();
 
 	if (!year) {
 		fillTeamList([]);
@@ -92,7 +292,7 @@ async function loadTeams(year) {
 	}
 
 	teamList.replaceChildren();
-	const loadingItem = document.createElement("li");
+	const loadingItem = document.createElement("p");
 	loadingItem.className = "placeholder";
 	loadingItem.textContent = "Loading teams...";
 	teamList.appendChild(loadingItem);
@@ -129,8 +329,10 @@ async function loadTeams(year) {
 			};
 		});
 
-		fillTeamList(normalizedTeams);
+		currentTeams = normalizedTeams;
+		fillTeamList(currentTeams);
 		setTeamsStatus(`${normalizedTeams.length} teams loaded for ${year}`);
+		setPlayersStatus("Select a team from above to load players.");
 	} catch (error) {
 		if (requestId !== activeTeamsRequest) {
 			return;
@@ -139,7 +341,18 @@ async function loadTeams(year) {
 		console.error(error);
 		fillTeamList([]);
 		setTeamsStatus("Could not load teams. Try a different season.", true);
+		setPlayersStatus("Players are unavailable because teams could not be loaded.", true);
 	}
+}
+
+async function handleTeamSelection(teamName) {
+	if (!teamName) {
+		return;
+	}
+
+	setSelectedTeam(teamName);
+	fillTeamList(currentTeams);
+	await loadPlayers(yearSelect.value, teamName);
 }
 
 async function handleYearSelection() {
@@ -185,8 +398,11 @@ async function loadYears() {
 		console.error(error);
 		yearSelect.disabled = true;
 		setSelectedYear("");
+		currentTeams = [];
 		fillTeamList([]);
+		resetPlayersPanel();
 		setTeamsStatus("Teams are unavailable because years could not be loaded.", true);
+		setPlayersStatus("Players are unavailable because years could not be loaded.", true);
 		setStatus("Could not load years. Please refresh and try again.", true);
 	}
 }
