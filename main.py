@@ -12,5 +12,16 @@ async def get_years():
         years = session.exec(statement).all()
     return years
 
+@app.get("/teams")
+async def get_teams(year: int):
+    with Session(engine) as session:
+        statement = (
+            select(Teams.name)
+            .where(Teams.yearid == year)
+            .where(Teams.name.is_not(None))
+            .order_by(Teams.name)
+        )
+        team_names = session.exec(statement).all()
+    return team_names
 
 app.mount("/", StaticFiles(directory="static", html=True),name="static")
