@@ -6,10 +6,16 @@ const teamsStatusText = document.getElementById("teams-status");
 const playerList = document.getElementById("player-list");
 const playersStatusText = document.getElementById("players-status");
 const selectedTeamText = document.getElementById("selected-team");
+const playerProfile = document.getElementById("player-profile");
+const careerTableBody = document.getElementById("career-table-body");
+const profileStatusText = document.getElementById("profile-status");
 let activeTeamsRequest = 0;
 let activePlayersRequest = 0;
+let activeProfileRequest = 0;
 let currentTeams = [];
+let currentPlayers = [];
 let selectedTeamName = null;
+let selectedPlayerId = null;
 
 function normalizeNumber(value, fallback = 0) {
 	if (typeof value === "number" && Number.isFinite(value)) {
@@ -63,11 +69,20 @@ function setPlayersStatus(message, isError = false) {
 	playersStatusText.classList.toggle("error", isError);
 }
 
+function setProfileStatus(message, isError = false) {
+	profileStatusText.textContent = message;
+	profileStatusText.classList.toggle("error", isError);
+}
+
 function setSelectedTeam(teamName) {
 	selectedTeamName = teamName;
 	selectedTeamText.textContent = teamName
 		? `Selected team: ${teamName}`
 		: "Select a team to load players.";
+}
+
+function setSelectedPlayer(playerId) {
+	selectedPlayerId = playerId;
 }
 
 function formatLeagueLabel(leagueCode) {
@@ -102,6 +117,124 @@ function codeRank(code, preferredOrder) {
 	return rank === -1 ? preferredOrder.length : rank;
 }
 
+function formatValue(value, fallback = "-") {
+	if (value === null || value === undefined || value === "") {
+		return fallback;
+	}
+
+	return String(value);
+}
+
+function formatBirthDate(bio) {
+	const year = normalizeNumber(bio.birth_year, NaN);
+	const month = normalizeNumber(bio.birth_month, NaN);
+	const day = normalizeNumber(bio.birth_day, NaN);
+
+	if (!Number.isFinite(year)) {
+		return "-";
+	}
+
+	if (Number.isFinite(month) && Number.isFinite(day)) {
+		const monthPart = String(month).padStart(2, "0");
+		const dayPart = String(day).padStart(2, "0");
+		return `${year}-${monthPart}-${dayPart}`;
+	}
+
+	return String(year);
+}
+
+function fillCareerTable(stats, emptyMessage = "No career stats found for this player.") {
+	careerTableBody.replaceChildren();
+
+	if (!Array.isArray(stats) || stats.length === 0) {
+		const row = document.createElement("tr");
+		const cell = document.createElement("td");
+		cell.colSpan = 13;
+		cell.className = "placeholder";
+		cell.textContent = emptyMessage;
+		row.appendChild(cell);
+		careerTableBody.appendChild(row);
+		return;
+	}
+
+	for (const stat of stats) {
+		const row = document.createElement("tr");
+		const teamsLabel = typeof stat.teams === "string" && stat.teams.trim().length > 0
+			? stat.teams
+			: "-";
+		const columns = [
+			stat.year,
+			teamsLabel,
+			stat.games,
+			stat.at_bats,
+			stat.runs,
+			stat.hits,
+			stat.doubles,
+			stat.triples,
+			stat.home_runs,
+			stat.rbi,
+			stat.walks,
+			stat.strikeouts,
+			stat.stolen_bases,
+		];
+
+		for (const value of columns) {
+			const cell = document.createElement("td");
+			cell.textContent = formatValue(value);
+			row.appendChild(cell);
+		}
+
+		careerTableBody.appendChild(row);
+	}
+}
+
+function fillPlayerProfileCard(bio) {
+	playerProfile.replaceChildren();
+
+	if (!bio || typeof bio !== "object") {
+		const placeholder = document.createElement("p");
+		placeholder.className = "placeholder";
+		placeholder.textContent = "No biography found for this player.";
+		playerProfile.appendChild(placeholder);
+		return;
+	}
+
+	const heading = document.createElement("h3");
+	heading.textContent = formatValue(bio.full_name, "Unknown Player");
+
+	const grid = document.createElement("div");
+	grid.className = "bio-grid";
+
+	const birthPlace = [bio.birth_city, bio.birth_state, bio.birth_country]
+		.filter((part) => typeof part === "string" && part.trim().length > 0)
+		.join(", ");
+
+	const items = [
+		["Player ID", formatValue(bio.player_id)],
+		["Born", formatBirthDate(bio)],
+		["Birthplace", formatValue(birthPlace)],
+		["Bats", formatValue(bio.bats)],
+		["Throws", formatValue(bio.throws)],
+		["Height", bio.height ? `${bio.height} in` : "-"],
+		["Weight", bio.weight ? `${bio.weight} lb` : "-"],
+		["Debut", formatValue(bio.debut)],
+		["Final Game", formatValue(bio.final_game)],
+	];
+
+	for (const [label, value] of items) {
+		const item = document.createElement("p");
+		item.className = "bio-item";
+		const strong = document.createElement("strong");
+		strong.textContent = `${label}:`;
+		item.appendChild(strong);
+		item.appendChild(document.createTextNode(` ${value}`));
+		grid.appendChild(item);
+	}
+
+	playerProfile.appendChild(heading);
+	playerProfile.appendChild(grid);
+}
+
 function fillPlayerList(players, emptyMessage = "No players found for this team in that season.") {
 	playerList.replaceChildren();
 
@@ -116,16 +249,101 @@ function fillPlayerList(players, emptyMessage = "No players found for this team 
 	for (const player of players) {
 		const playerItem = document.createElement("li");
 		playerItem.className = "player-item";
-		playerItem.textContent = `${player.first_name} ${player.last_name} (${player.home_runs} HR)`;
+
+		const playerButton = document.createElement("button");
+		playerButton.type = "button";
+		playerButton.className = "player-button";
+		if (player.player_id === selectedPlayerId) {
+			playerButton.classList.add("is-selected");
+		}
+		playerButton.textContent = `${player.first_name} ${player.last_name} (${player.home_runs} HR)`;
+		playerButton.addEventListener("click", () => {
+			handlePlayerSelection(player.player_id);
+		});
+
+		playerItem.appendChild(playerButton);
 		playerList.appendChild(playerItem);
 	}
 }
 
+function resetProfilePanel() {
+	activeProfileRequest += 1;
+	setSelectedPlayer(null);
+	playerProfile.replaceChildren();
+	const placeholder = document.createElement("p");
+	placeholder.className = "placeholder";
+	placeholder.textContent = "Select a player to view their bio and career stats.";
+	playerProfile.appendChild(placeholder);
+	fillCareerTable([], "No player selected.");
+	setProfileStatus("Waiting for player selection...");
+}
+
 function resetPlayersPanel() {
 	activePlayersRequest += 1;
+	currentPlayers = [];
 	setSelectedTeam(null);
+	resetProfilePanel();
 	fillPlayerList([], "No team selected.");
 	setPlayersStatus("Waiting for team selection...");
+}
+
+async function loadPlayerProfile(playerId) {
+	const requestId = ++activeProfileRequest;
+
+	if (!playerId) {
+		resetProfilePanel();
+		return;
+	}
+
+	playerProfile.replaceChildren();
+	const loadingCard = document.createElement("p");
+	loadingCard.className = "placeholder";
+	loadingCard.textContent = "Loading player bio...";
+	playerProfile.appendChild(loadingCard);
+	fillCareerTable([], "Loading career stats...");
+	setProfileStatus("Loading player profile...");
+
+	try {
+		const response = await fetch(`/player-profile?player_id=${encodeURIComponent(playerId)}`, {
+			cache: "no-store",
+		});
+
+		if (!response.ok) {
+			throw new Error(`Request failed with status ${response.status}`);
+		}
+
+		const profile = await response.json();
+
+		if (requestId !== activeProfileRequest) {
+			return;
+		}
+
+		if (!profile || typeof profile !== "object") {
+			throw new Error("Invalid player profile returned from server");
+		}
+
+		fillPlayerProfileCard(profile.bio);
+		fillCareerTable(Array.isArray(profile.career_stats) ? profile.career_stats : []);
+		setProfileStatus("Player profile loaded.");
+	} catch (error) {
+		if (requestId !== activeProfileRequest) {
+			return;
+		}
+
+		console.error(error);
+		resetProfilePanel();
+		setProfileStatus("Could not load player profile.", true);
+	}
+}
+
+async function handlePlayerSelection(playerId) {
+	if (!playerId) {
+		return;
+	}
+
+	setSelectedPlayer(playerId);
+	fillPlayerList(currentPlayers);
+	await loadPlayerProfile(playerId);
 }
 
 function fillTeamList(teams) {
@@ -276,6 +494,7 @@ async function loadPlayers(year, teamName) {
 			if (
 				!player ||
 				typeof player !== "object" ||
+				typeof player.player_id !== "string" ||
 				typeof player.first_name !== "string" ||
 				typeof player.last_name !== "string"
 			) {
@@ -283,12 +502,15 @@ async function loadPlayers(year, teamName) {
 			}
 
 			return {
+				player_id: player.player_id,
 				first_name: player.first_name,
 				last_name: player.last_name,
 				home_runs: normalizeNumber(player.home_runs),
 			};
 		});
 
+		currentPlayers = normalizedPlayers;
+		resetProfilePanel();
 		fillPlayerList(normalizedPlayers);
 		setPlayersStatus(`${normalizedPlayers.length} players loaded for ${teamName}`);
 	} catch (error) {

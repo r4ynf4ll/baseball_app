@@ -44,10 +44,40 @@
 			<ul id="player-list" class="player-list" aria-live="polite">
 				<li class="placeholder">No team selected.</li>
 			</ul>
+			<div id="player-profile" class="player-profile" aria-live="polite">
+				<p class="placeholder">Select a player to view their bio and career stats.</p>
+			</div>
+			<div class="career-table-wrap" aria-live="polite">
+				<table class="career-table">
+					<thead>
+						<tr>
+							<th>Year</th>
+							<th>Teams</th>
+							<th>Games</th>
+							<th>At Bats</th>
+							<th>Runs</th>
+							<th>Hits</th>
+							<th>Doubles</th>
+							<th>Triples</th>
+							<th>Home Runs</th>
+							<th>RBI</th>
+							<th>Walks</th>
+							<th>Strikeouts</th>
+							<th>Stolen Bases</th>
+						</tr>
+					</thead>
+					<tbody id="career-table-body">
+						<tr>
+							<td class="placeholder" colspan="13">No player selected.</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			<p id="profile-status" class="status" role="status" aria-live="polite">Waiting for player selection...</p>
 			<p id="players-status" class="status" role="status" aria-live="polite">Waiting for team selection...</p>
 		</section>
 	</main>
 
-	<script src="script.js?v=7" defer></script>
+	<script src="script.js?v=8" defer></script>
 </body>
 </html>
