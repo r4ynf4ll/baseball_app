@@ -11,6 +11,21 @@ let activePlayersRequest = 0;
 let currentTeams = [];
 let selectedTeamName = null;
 
+function normalizeNumber(value, fallback = 0) {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+
+	if (typeof value === "string") {
+		const parsed = Number.parseInt(value, 10);
+		if (Number.isFinite(parsed)) {
+			return parsed;
+		}
+	}
+
+	return fallback;
+}
+
 const LEAGUE_LABELS = {
 	AL: "American League",
 	NL: "National League",
@@ -101,7 +116,7 @@ function fillPlayerList(players, emptyMessage = "No players found for this team 
 	for (const player of players) {
 		const playerItem = document.createElement("li");
 		playerItem.className = "player-item";
-		playerItem.textContent = `${player.first_name} ${player.last_name}`;
+		playerItem.textContent = `${player.first_name} ${player.last_name} (${player.home_runs} HR)`;
 		playerList.appendChild(playerItem);
 	}
 }
@@ -139,7 +154,7 @@ function fillTeamList(teams) {
 			divisions.set(divisionCode, []);
 		}
 
-		divisions.get(divisionCode).push(team.name);
+		divisions.get(divisionCode).push(team);
 	}
 
 	const leagueCodes = [...grouped.keys()].sort((a, b) => {
@@ -181,23 +196,30 @@ function fillTeamList(teams) {
 			divisionTitle.className = "division-title";
 			divisionTitle.textContent = formatDivisionLabel(divisionCode === "NONE" ? null : divisionCode);
 
-			const teamsInDivision = [...divisions.get(divisionCode)].sort((a, b) => a.localeCompare(b));
+			const teamsInDivision = [...divisions.get(divisionCode)].sort((a, b) => {
+				const winsDelta = b.wins - a.wins;
+				if (winsDelta !== 0) {
+					return winsDelta;
+				}
+
+				return a.name.localeCompare(b.name);
+			});
 			const divisionTeamList = document.createElement("ul");
 			divisionTeamList.className = "division-teams";
 
-			for (const teamName of teamsInDivision) {
+			for (const team of teamsInDivision) {
 				const teamItem = document.createElement("li");
 				teamItem.className = "division-team-item";
 
 				const teamButton = document.createElement("button");
 				teamButton.type = "button";
 				teamButton.className = "team-button";
-				if (teamName === selectedTeamName) {
+				if (team.name === selectedTeamName) {
 					teamButton.classList.add("is-selected");
 				}
-				teamButton.textContent = teamName;
+				teamButton.textContent = `${team.name} (${team.wins} W)`;
 				teamButton.addEventListener("click", () => {
-					handleTeamSelection(teamName);
+					handleTeamSelection(team.name);
 				});
 
 				teamItem.appendChild(teamButton);
@@ -263,6 +285,7 @@ async function loadPlayers(year, teamName) {
 			return {
 				first_name: player.first_name,
 				last_name: player.last_name,
+				home_runs: normalizeNumber(player.home_runs),
 			};
 		});
 
@@ -323,9 +346,11 @@ async function loadTeams(year) {
 			}
 
 			return {
+				team_id: typeof team.team_id === "string" ? team.team_id : null,
 				name: team.name,
 				league: typeof team.league === "string" ? team.league : null,
 				division: typeof team.division === "string" ? team.division : null,
+				wins: normalizeNumber(team.wins),
 			};
 		});
 
